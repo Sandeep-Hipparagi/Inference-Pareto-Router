@@ -24,6 +24,7 @@ from pareto_router.evaluator.base import BaseEvaluator
 from pareto_router.evaluator.heuristic import HeuristicEvaluator
 from pareto_router.gateway.cascade import CascadeResult, SpeculativeCascade
 from pareto_router.gateway.verifiers import BaseVerifier
+from pareto_router.telemetry.metrics import PrometheusMetricsExporter
 
 
 class ParetoStream:
@@ -80,6 +81,7 @@ class ParetoChatCompletions:
         provider: ProviderType = ProviderType.OPENAI,
         sliding_window_size: int = 6,
         default_strategy: RoutingStrategy = RoutingStrategy.PARETO_BALANCED,
+        metrics: PrometheusMetricsExporter | None = None,
     ) -> None:
         self.evaluator = evaluator
         self.policy = policy
@@ -88,6 +90,7 @@ class ParetoChatCompletions:
         self.provider = provider
         self.sliding_window_size = sliding_window_size
         self.default_strategy = default_strategy
+        self.metrics = metrics
 
     def _extract_sliding_context(
         self,
@@ -180,6 +183,10 @@ class ParetoChatCompletions:
             final_content = inf_resp.content
             final_model = inf_resp.model
             final_decision = decision
+
+        # Record metrics telemetry if enabled
+        if self.metrics:
+            self.metrics.record_decision(final_decision, self.provider, active_strategy)
 
         t1 = time.perf_counter_ns()
         total_latency_ms = (t1 - t0) / 1_000_000.0
@@ -324,6 +331,7 @@ class ParetoRouterChat:
         cascade: SpeculativeCascade,
         provider: ProviderType = ProviderType.OPENAI,
         default_strategy: RoutingStrategy = RoutingStrategy.PARETO_BALANCED,
+        metrics: PrometheusMetricsExporter | None = None,
     ) -> None:
         self.completions = ParetoChatCompletions(
             evaluator=evaluator,
@@ -332,23 +340,34 @@ class ParetoRouterChat:
             cascade=cascade,
             provider=provider,
             default_strategy=default_strategy,
+            metrics=metrics,
         )
 
 
 class ParetoRouter:
-    """Drop-in OpenAI SDK client wrapper with 2D Pareto routing and automatic env key detection."""
+    """Drop-in OpenAI SDK client wrapper with 2D Pareto routing, streaming, and Prometheus metrics."""
 
     def __init__(
         self,
         api_key: str | None = None,
         provider: ProviderType = ProviderType.OPENAI,
         strategy: RoutingStrategy | str = RoutingStrategy.PARETO_BALANCED,
+        enable_metrics: bool = True,
+        metrics: PrometheusMetricsExporter | None = None,
         evaluator: BaseEvaluator | None = None,
         policy: ParetoPolicy | None = None,
         normalizer: ProviderNormalizer | None = None,
     ) -> None:
         self.provider = provider
         self.strategy = RoutingStrategy(strategy)
+
+        # Telemetry & metrics
+        if metrics is not None:
+            self.metrics: PrometheusMetricsExporter | None = metrics
+        elif enable_metrics:
+            self.metrics = PrometheusMetricsExporter()
+        else:
+            self.metrics = None
 
         # Automatically resolve API key from environment if not explicitly passed
         self.api_key = (
@@ -370,4 +389,5 @@ class ParetoRouter:
             cascade=self.cascade,
             provider=self.provider,
             default_strategy=self.strategy,
+            metrics=self.metrics,
         )

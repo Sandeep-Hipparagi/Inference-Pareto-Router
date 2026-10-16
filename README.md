@@ -222,6 +222,45 @@ completion = client.chat.completions.create(
 )
 ```
 
+### 6. Prometheus & OpenTelemetry Observability
+Inference-Pareto-Router includes a built-in, zero-dependency Prometheus exporter reporting real-time routing metrics, latency histograms, and cost-saving telemetry:
+
+```python
+from pareto_router import ParetoRouter
+
+client = ParetoRouter(enable_metrics=True)
+
+# ... handle requests ...
+
+# Export Prometheus exposition format directly to your /metrics scrape endpoint
+prometheus_text = client.metrics.export_prometheus_text()
+
+# Or retrieve structured JSON summary for Datadog / CloudWatch / OpenTelemetry
+summary = client.metrics.get_summary()
+print(summary)
+# {
+#   "total_routed_requests": 1420,
+#   "overthinking_penalties_clamped": 420,
+#   "average_evaluation_overhead_ms": 0.082,
+#   "tier_dispatches": {"compact:openai": 320, "frontier:anthropic": 100},
+#   ...
+# }
+```
+
+#### Pre-built Grafana PromQL Queries
+- **Routing Tier Distribution**:
+  ```promql
+  sum by (tier) (rate(pareto_router_tier_dispatch_total[5m]))
+  ```
+- **Overthinking Penalty Clamps (Saved Cost & Tokens)**:
+  ```promql
+  sum(rate(pareto_router_overthinking_penalties_total[5m]))
+  ```
+- **P99 Evaluation Latency Overhead**:
+  ```promql
+  histogram_quantile(0.99, sum by (le) (rate(pareto_router_overhead_seconds_bucket[5m])))
+  ```
+
 ---
 
 ## Provider Normalization Table

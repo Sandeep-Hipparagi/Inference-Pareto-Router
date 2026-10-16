@@ -28,6 +28,7 @@ from pareto_router.gateway.verifiers import (
     PythonSyntaxVerifier,
     RegexVerifier,
 )
+from pareto_router.telemetry.metrics import PrometheusMetricsExporter
 
 __version__ = "0.1.0"
 
@@ -65,4 +66,6 @@ __all__ = [
     "PythonSyntaxVerifier",
     "RegexVerifier",
     "SpeculativeCascade",
+    # Telemetry
+    "PrometheusMetricsExporter",
 ]
