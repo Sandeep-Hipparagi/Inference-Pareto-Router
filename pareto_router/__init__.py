@@ -13,13 +13,14 @@ from pareto_router.core.schemas import (
     ProviderPayload,
     ProviderType,
     RoutingDecision,
+    RoutingStrategy,
 )
 from pareto_router.evaluator.base import BaseEvaluator
 from pareto_router.evaluator.decision_model import DecisionModelClient
 from pareto_router.evaluator.heuristic import HeuristicEvaluator
 from pareto_router.evaluator.onnx_evaluator import ONNXEvaluator
 from pareto_router.gateway.cascade import CascadeAttempt, CascadeResult, SpeculativeCascade
-from pareto_router.gateway.client import ParetoRouter
+from pareto_router.gateway.client import ParetoAsyncStream, ParetoRouter, ParetoStream
 from pareto_router.gateway.verifiers import (
     BaseVerifier,
     CustomVerifier,
@@ -42,6 +43,7 @@ __all__ = [
     "ProviderPayload",
     "ProviderType",
     "RoutingDecision",
+    "RoutingStrategy",
     # Core Logic
     "ParetoPolicy",
     "ProviderModelCatalog",
@@ -57,7 +59,9 @@ __all__ = [
     "CascadeResult",
     "CustomVerifier",
     "JsonSchemaVerifier",
+    "ParetoAsyncStream",
     "ParetoRouter",
+    "ParetoStream",
     "PythonSyntaxVerifier",
     "RegexVerifier",
     "SpeculativeCascade",

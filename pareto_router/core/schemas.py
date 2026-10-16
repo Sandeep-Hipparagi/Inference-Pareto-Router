@@ -37,6 +37,13 @@ class EffortLevel(str, Enum):
         return cls.HIGH
 
 
+class RoutingStrategy(str, Enum):
+    """Presets adjusting the trade-off along the 2D Pareto frontier."""
+    PARETO_BALANCED = "pareto_balanced"  # Optimal balance between quality, speed, and cost
+    PARETO_COST = "pareto_cost"          # Cost-aggressive; max compact routing, minimal thinking
+    PARETO_QUALITY = "pareto_quality"    # Frontier-first; deeper reasoning budgets for complex logic
+
+
 class ProviderType(str, Enum):
     """Supported upstream model providers."""
     OPENAI = "openai"

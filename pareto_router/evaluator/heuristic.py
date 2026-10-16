@@ -104,13 +104,43 @@ class HeuristicEvaluator(BaseEvaluator):
         num_words = max(1, len(words))
 
         # Check for greeting & low-entropy chitchat
-        has_greeting_word = any(gw in word_set for gw in self.GREETING_WORDS)
-        has_greeting_phrase = any(pat.search(cleaned) for pat in self.GREETING_PATTERNS)
-        is_greeting = (has_greeting_word or has_greeting_phrase) and num_words <= 12
+        turn_cleaned = text.strip()
+        turn_words = re.findall(r"\b\w+\b", turn_cleaned.lower())
+        turn_word_set = set(turn_words)
+        num_turn_words = len(turn_words)
+
+        has_greeting_word = any(gw in turn_word_set for gw in self.GREETING_WORDS)
+        has_greeting_phrase = any(pat.search(turn_cleaned) for pat in self.GREETING_PATTERNS)
+        is_greeting = (has_greeting_word or has_greeting_phrase) and num_turn_words <= 12
 
         # Check for aesthetic rewrite
-        is_aesthetic = any(pat.search(cleaned) for pat in self.AESTHETIC_REWRITE_PATTERNS)
+        is_aesthetic = any(pat.search(turn_cleaned) for pat in self.AESTHETIC_REWRITE_PATTERNS)
         is_low_entropy = is_greeting or is_aesthetic
+
+        # Referential follow-up detection (e.g., "Fix the bug", "Why is it failing?", "Make it faster")
+        is_referential_followup = False
+        prior_had_code_or_logic = False
+        if context and num_turn_words <= 15:
+            referential_pat = re.compile(
+                r"\b(fix|debug|why|error|failing|failed|fails|broken|bug|issue|optimize|faster|refactor|it|this|that|doesn't work)\b",
+                re.IGNORECASE
+            )
+            if referential_pat.search(turn_cleaned):
+                is_referential_followup = True
+                # Scan context for code blocks, traceback, or technical invariants
+                context_str = " ".join(turn.get("content", "") for turn in context[-4:])
+                for cp in self.CODE_PATTERNS:
+                    if cp.search(context_str):
+                        prior_had_code_or_logic = True
+                        break
+                if not prior_had_code_or_logic and any(w in context_str.lower() for w in self.LOGIC_WORDS):
+                    prior_had_code_or_logic = True
+
+        # If it's a referential follow-up to prior code/logic, it must NEVER be penalized as low-entropy
+        if is_referential_followup and prior_had_code_or_logic:
+            is_low_entropy = False
+            is_greeting = False
+            is_aesthetic = False
 
         # --- Compute Logic Score ---
         logic_points = 0.0
@@ -139,6 +169,10 @@ class HeuristicEvaluator(BaseEvaluator):
         if re.search(r"\b(strictly|must satisfy|output only|test case|assertion|unit test|falsify|correctness)\b", lower_text):
             logic_points += 0.20
 
+        # Propagate prior logic if referential follow-up
+        if is_referential_followup and prior_had_code_or_logic:
+            logic_points = max(logic_points, 0.70)
+
         # Compute continuous logic score
         logic_score = min(1.0, logic_points)
 
@@ -156,6 +190,10 @@ class HeuristicEvaluator(BaseEvaluator):
         # Phrase matches
         matched_k_phrases = [phrase for phrase in self.KNOWLEDGE_PHRASES if phrase in lower_text]
         knowledge_points += len(matched_k_phrases) * 0.25
+
+        # If referential follow-up to technical context, inherit knowledge
+        if is_referential_followup and prior_had_code_or_logic:
+            knowledge_points = max(knowledge_points, 0.40)
 
         # Vocabulary sophistication: word length and rarity proxy
         long_words = [w for w in words if len(w) >= 8]
@@ -187,6 +225,8 @@ class HeuristicEvaluator(BaseEvaluator):
             "is_low_entropy": is_low_entropy,
             "is_greeting": is_greeting,
             "is_aesthetic": is_aesthetic,
+            "is_referential_followup": is_referential_followup,
+            "prior_had_code_or_logic": prior_had_code_or_logic,
             "matched_logic_keywords": all_matched_logic[:5],
             "matched_knowledge_keywords": all_matched_knowledge[:5],
             "word_count": num_words,

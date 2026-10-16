@@ -90,39 +90,45 @@ def run_benchmark_suite() -> dict[str, Any]:
     cost_savings_pct = ((baseline_cost - routed_cost) / baseline_cost) * 100.0
     latency_savings_pct = ((baseline_inference_time_s - routed_inference_time_s) / baseline_inference_time_s) * 100.0
 
-    summary = {
+    lat_metrics: dict[str, Any] = {
+        "mean": round(float(np.mean(lat_arr)), 3),
+        "median_p50": round(float(np.percentile(lat_arr, 50)), 3),
+        "p90": round(float(np.percentile(lat_arr, 90)), 3),
+        "p95": round(float(np.percentile(lat_arr, 95)), 3),
+        "p99": round(float(np.percentile(lat_arr, 99)), 3),
+        "max": round(float(np.max(lat_arr)), 3),
+        "budget_threshold_ms": 15.0,
+        "budget_passed": bool(np.max(lat_arr) < 15.0),
+    }
+
+    ot_metrics: dict[str, Any] = {
+        "total_activations": overthinking_penalties,
+        "expected_candidates": total_overthinking_candidates,
+        "accuracy_pct": round((correct_overthinking_detections / total_overthinking_candidates) * 100.0, 1),
+    }
+
+    efficiency_metrics: dict[str, Any] = {
+        "estimated_cost_savings_pct": round(cost_savings_pct, 1),
+        "estimated_latency_savings_pct": round(latency_savings_pct, 1),
+        "baseline_model": "100% Frontier High-Reasoning (o1 / Claude 3.7 Thinking)",
+    }
+
+    summary: dict[str, Any] = {
         "total_scenarios": len(SCENARIOS),
-        "latency_metrics_ms": {
-            "mean": round(float(np.mean(lat_arr)), 3),
-            "median_p50": round(float(np.percentile(lat_arr, 50)), 3),
-            "p90": round(float(np.percentile(lat_arr, 90)), 3),
-            "p95": round(float(np.percentile(lat_arr, 95)), 3),
-            "p99": round(float(np.percentile(lat_arr, 99)), 3),
-            "max": round(float(np.max(lat_arr)), 3),
-            "budget_threshold_ms": 15.0,
-            "budget_passed": bool(np.max(lat_arr) < 15.0),
-        },
+        "latency_metrics_ms": lat_metrics,
         "tier_distribution": tier_counts,
         "effort_distribution": effort_counts,
-        "overthinking_penalty": {
-            "total_activations": overthinking_penalties,
-            "expected_candidates": total_overthinking_candidates,
-            "accuracy_pct": round((correct_overthinking_detections / total_overthinking_candidates) * 100.0, 1),
-        },
-        "efficiency_gains": {
-            "estimated_cost_savings_pct": round(cost_savings_pct, 1),
-            "estimated_latency_savings_pct": round(latency_savings_pct, 1),
-            "baseline_model": "100% Frontier High-Reasoning (o1 / Claude 3.7 Thinking)",
-        }
+        "overthinking_penalty": ot_metrics,
+        "efficiency_gains": efficiency_metrics,
     }
 
     print("\n--- 1. ROUTING OVERHEAD LATENCY (<15ms Budget) ---")
-    print(f"  P50 (Median)   : {summary['latency_metrics_ms']['median_p50']} ms")
-    print(f"  P90            : {summary['latency_metrics_ms']['p90']} ms")
-    print(f"  P95            : {summary['latency_metrics_ms']['p95']} ms")
-    print(f"  P99            : {summary['latency_metrics_ms']['p99']} ms")
-    print(f"  Max Latency    : {summary['latency_metrics_ms']['max']} ms")
-    print(f"  Status         : {'PASSED (Strictly < 15ms)' if summary['latency_metrics_ms']['budget_passed'] else 'FAILED'}")
+    print(f"  P50 (Median)   : {lat_metrics['median_p50']} ms")
+    print(f"  P90            : {lat_metrics['p90']} ms")
+    print(f"  P95            : {lat_metrics['p95']} ms")
+    print(f"  P99            : {lat_metrics['p99']} ms")
+    print(f"  Max Latency    : {lat_metrics['max']} ms")
+    print(f"  Status         : {'PASSED (Strictly < 15ms)' if lat_metrics['budget_passed'] else 'FAILED'}")
 
     print("\n--- 2. 2D ROUTE DISTRIBUTION ---")
     print("  Tier Breakdown:")
@@ -134,11 +140,11 @@ def run_benchmark_suite() -> dict[str, Any]:
 
     print("\n--- 3. OVERTHINKING PENALTY ---")
     print(f"  Activations    : {overthinking_penalties} triggers")
-    print(f"  Target Accuracy: {summary['overthinking_penalty']['accuracy_pct']}% of aesthetic/greeting prompts clamped to 0 effort")
+    print(f"  Target Accuracy: {ot_metrics['accuracy_pct']}% of aesthetic/greeting prompts clamped to 0 effort")
 
     print("\n--- 4. ESTIMATED SAVINGS VS ALL-FRONTIER REASONING BASELINE ---")
-    print(f"  Estimated Cost Reduction   : {summary['efficiency_gains']['estimated_cost_savings_pct']}%")
-    print(f"  Estimated Latency Reduction: {summary['efficiency_gains']['estimated_latency_savings_pct']}%")
+    print(f"  Estimated Cost Reduction   : {efficiency_metrics['estimated_cost_savings_pct']}%")
+    print(f"  Estimated Latency Reduction: {efficiency_metrics['estimated_latency_savings_pct']}%")
     print("=" * 78)
 
     return summary
