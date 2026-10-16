@@ -1,0 +1,34 @@
+{
+  "total_scenarios": 100,
+  "latency_metrics_ms": {
+    "mean": 0.068,
+    "median_p50": 0.068,
+    "p90": 0.082,
+    "p95": 0.085,
+    "p99": 0.131,
+    "max": 0.358,
+    "budget_threshold_ms": 15.0,
+    "budget_passed": true
+  },
+  "tier_distribution": {
+    "compact": 21,
+    "mid": 41,
+    "frontier": 38
+  },
+  "effort_distribution": {
+    "none": 63,
+    "low": 16,
+    "medium": 12,
+    "high": 9
+  },
+  "overthinking_penalty": {
+    "total_activations": 16,
+    "expected_candidates": 20,
+    "accuracy_pct": 80.0
+  },
+  "efficiency_gains": {
+    "estimated_cost_savings_pct": 71.5,
+    "estimated_latency_savings_pct": 70.1,
+    "baseline_model": "100% Frontier High-Reasoning (o1 / Claude 3.7 Thinking)"
+  }
+}
