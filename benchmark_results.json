@@ -1,12 +1,12 @@
 {
   "total_scenarios": 100,
   "latency_metrics_ms": {
-    "mean": 0.088,
-    "median_p50": 0.079,
-    "p90": 0.122,
-    "p95": 0.178,
-    "p99": 0.28,
-    "max": 0.432,
+    "mean": 0.099,
+    "median_p50": 0.086,
+    "p90": 0.143,
+    "p95": 0.159,
+    "p99": 0.181,
+    "max": 0.404,
     "budget_threshold_ms": 15.0,
     "budget_passed": true
   },

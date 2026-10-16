@@ -89,5 +89,6 @@ jobs:
         with:
           packages-dir: dist/
           skip-existing: true
-          # Note: If not using OIDC Trusted Publishing, set repository secret PYPI_API_TOKEN:
-          # password: ${{ secrets.PYPI_API_TOKEN }}
+          # Supports both OIDC Trusted Publishing (default when PYPI_API_TOKEN is unset)
+          # and API token authentication (when secret PYPI_API_TOKEN is defined)
+          password: ${{ secrets.PYPI_API_TOKEN }}

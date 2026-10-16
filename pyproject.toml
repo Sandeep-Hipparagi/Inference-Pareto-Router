@@ -1,5 +1,5 @@
 [project]
-name = "inference-pareto-router"
+name = "pareto-router"
 version = "0.1.0"
 description = "A 2D Model Tier & Reasoning Effort Routing Engine"
 readme = "README.md"
