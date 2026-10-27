@@ -30,7 +30,7 @@ from pareto_router.gateway.verifiers import (
 )
 from pareto_router.telemetry.metrics import PrometheusMetricsExporter
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 
 __all__ = [
     # Core Schemas

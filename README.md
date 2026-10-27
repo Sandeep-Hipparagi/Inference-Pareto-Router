@@ -20,9 +20,12 @@ gets a one-shot answer from a mini model.
 
 Inference-Pareto-Router treats routing as a **point in a 2D space**. It scores a
 prompt on two orthogonal axes, `logic` (verifiability, algorithmic depth, math/code
-structure) and `knowledge` (entity richness, domain nuance, world knowledge), and in
-**under 0.2 ms** returns a coordinate: `(ModelTier, ReasoningEffort)` — plus the
-exact, provider-ready request body that implements it.
+structure) and `knowledge` (entity richness, domain nuance, world knowledge), and
+returns a coordinate `(ModelTier, ReasoningEffort)` together with the exact,
+provider-ready request body that implements it — in roughly **0.1 ms at the median**,
+with no network call in the decision path. The in-repo 100-scenario benchmark
+reports mean 0.099 ms and p99 0.181 ms; the first call in a process pays a one-off
+warmup of a few milliseconds.
 
 ---
 
@@ -30,7 +33,9 @@ exact, provider-ready request body that implements it.
 
 - [Installation](#installation)
 - [Quickstart](#quickstart) · [Constraints and the routing decision](#quickstart)
+- [Architecture](#architecture)
 - [How the 2D decision is computed](#how-the-2d-decision-is-computed)
+- [Runnable examples](#runnable-examples)
 - [Strategy presets](#strategy-presets)
 - [Benchmarks](#benchmarks)
 - [Provider routing table](#provider-routing-table)
@@ -90,7 +95,7 @@ payload = ProviderNormalizer().to_provider_payload(
 
 print(decision.tier, decision.effort_level, decision.reasoning_budget_tokens)
 print(payload.model, payload.body.get("reasoning_effort"))
-# -> ModelTier.FRONTIER EffortLevel.HIGH 25488
+# -> ModelTier.FRONTIER EffortLevel.HIGH 25464
 # -> o1 high
 ```
 
@@ -119,6 +124,72 @@ this in production — the transport layer in `0.1.x` is a deterministic stub, n
 live provider call.
 
 ---
+
+## Architecture
+
+```
+pareto_router/
+├── core/
+│   ├── schemas.py        Pydantic v2 models: ModelTier, ModelMode, EffortLevel,
+│   │                     RoutingStrategy, EvaluationScores, RoutingDecision, ProviderPayload
+│   ├── policy.py         ParetoPolicy - the 2D decision function (pure, no I/O)
+│   └── normalizer.py     ProviderModelCatalog + ProviderNormalizer - (tier, mode) to
+│                         a vendor model id and a ready request body
+├── evaluator/
+│   ├── base.py           BaseEvaluator contract; measures latency around _compute_scores
+│   ├── heuristic.py      HeuristicEvaluator - in-box, no network
+│   ├── onnx_evaluator.py ONNXEvaluator - local classifier via onnxruntime
+│   └── decision_model.py DecisionModelClient - external logits service
+├── gateway/
+│   ├── client.py         ParetoRouter / ParetoChatCompletions - OpenAI-shaped surface
+│   ├── cascade.py        SpeculativeCascade - escalate on verifier failure
+│   └── verifiers.py      JsonSchema / PythonSyntax / Regex / Custom verifiers
+├── telemetry/metrics.py  PrometheusMetricsExporter (exposition + JSON summary)
+├── benchmarks/           scenarios.py, run_benchmarks.py - the 100-scenario suite
+└── cli.py                the `pareto-router` console script
+```
+
+The pipeline is one direction and has exactly one impure stage:
+
+```
+prompt text
+   │
+   ▼  evaluator            (pluggable, the only stage that may do I/O)
+EvaluationScores { logic, knowledge, latency_ms }
+   │
+   ▼  ParetoPolicy        (pure function of scores + strategy preset)
+RoutingDecision { tier, effort_score, effort_level, mode, reasoning_budget_tokens }
+   │
+   ▼  ProviderNormalizer  (catalogue lookup + vendor knob mapping)
+ProviderPayload { provider, model, body, headers }
+   │
+   ▼  your transport      (httpx, openai SDK, your own gateway)
+provider API
+```
+
+Because the decision stage is pure and the catalogue is data, you can unit-test
+routing behaviour exhaustively without a provider key, and swap models by passing a
+custom `ProviderModelCatalog`.
+
+## Runnable examples
+
+Three scripts in [`examples/`](examples) run with no API key:
+
+```bash
+python examples/01_route_and_inspect.py     # one prompt, full decision breakdown
+python examples/02_compare_strategies.py    # the same prompts under all three presets
+python examples/03_dispatch_payload.py      # build the payload; --live to dispatch it
+```
+
+`02_compare_strategies.py` prints the tier/effort each preset chooses:
+
+```
+prompt                                              cost         balanced        quality
+hi there                                     compact/none     compact/none   compact/none
+Summarise this error log in one line.        compact/none     compact/none   compact/none
+Prove that sqrt(2) is irrational.                mid/none         mid/low        mid/low
+Refactor this 400-line React component...        mid/none     frontier/none  frontier/none
+```
 
 ## How the 2D decision is computed
 
@@ -303,6 +374,7 @@ uv sync --all-extras --dev
 uv run pytest -v                     # test suite
 uv run mypy --strict pareto_router tests
 uv run python -m pareto_router.benchmarks.run_benchmarks
+python examples/01_route_and_inspect.py
 ```
 
 CI (`.github/workflows/ci-publish.yml`) runs on every push and pull request to
