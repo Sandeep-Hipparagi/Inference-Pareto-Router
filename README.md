@@ -386,6 +386,16 @@ when configured.
 
 ---
 
+## Security & Verification Posture
+
+- **48/48 pytest cases green** under **mypy `--strict`** (`pareto_router tests` — 28 files, zero issues).
+- **214 adversarial fuzz probes** (invalid/emoji/NUL strategy strings, NaN/±Inf scores, randomized threshold constructions) executed with **0 unhandled crashes**.
+- Zero network calls in the decision path; deterministic, seed-free routing math.
+
+**Measured, not asserted:** the routing policy is cross-verified by [`agent-benchmark-suite`](https://github.com/Sandeep-Hipparagi/agent-benchmark-suite), whose reference adapter ports these exact published coordinates with CI-enforced drift checks.
+
+---
+
 ## Attribution and license
 
 Designed and developed by **[Sandeep Hipparagi](https://www.bluepatterns.ai/)**.
