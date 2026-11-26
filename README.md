@@ -11,6 +11,14 @@
 
 **Developed by [Sandeep Hipparagi](https://www.bluepatterns.ai/).**
 
+## Product Walkthrough & Architecture Demo
+
+https://github.com/Sandeep-Hipparagi/Inference-Pareto-Router/releases/download/media-v1/brag.mp4
+
+[![Inference-Pareto-Router demo](assets/media/preview.webp)](https://github.com/Sandeep-Hipparagi/Inference-Pareto-Router/releases/tag/media-v1)
+
+---
+
 Every prompt that reaches an LLM costs two independent resources: the *tier* of the
 model you send it to, and the *test-time reasoning effort* you let that model spend.
 Almost every router in the wild optimises one dimension — cheap model versus
